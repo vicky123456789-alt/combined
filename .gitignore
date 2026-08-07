@@ -1,0 +1,23 @@
+﻿# Environment files — NEVER commit
+.env
+*.env.local
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+charts-service/__pycache__/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Large binary files
+frontend/wasm/clang.wasm
+
+.vercel

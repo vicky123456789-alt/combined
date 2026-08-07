@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Profile — CF Weakness Tracker</title>
+  <meta name="description" content="Manage your Codeforces handle, view subscription status, and see your tag mastery badges.">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<!-- ── Navigation ───────────────────────────────────────────── -->
+<nav class="navbar" role="navigation" aria-label="Main navigation">
+  <div class="nav-inner">
+    <div class="nav-logo"><a href="/dashboard.html">CF Weakness Tracker</a></div>
+    <button class="hamburger" id="hamburger-btn" aria-label="Toggle navigation" aria-expanded="false">&#9776;</button>
+    <ul class="nav-links" id="nav-links">
+      <li><a href="/dashboard.html">Dashboard</a></li>
+      <li><a href="/charts.html">Weakness Charts</a></li>
+      <li><a href="/compiler.html">Compiler</a></li>
+      <li><a href="/subscription.html">Subscription</a></li>
+      <li><a href="/profile.html">Profile</a></li>
+      <li><a href="#" id="logout-btn">Logout</a></li>
+    </ul>
+  </div>
+</nav>
+
+<!-- ── Main Content ─────────────────────────────────────────── -->
+<div class="container">
+
+  <div id="page-msg" class="msg-info" style="display:none;"></div>
+
+  <!-- ── Profile Info ────────────────────────────────────────── -->
+  <div class="panel">
+    <div class="panel-title">Account Information</div>
+    <div class="panel-body">
+      <table style="width:auto;min-width:360px;">
+        <tbody>
+          <tr>
+            <th style="width:160px;">Email</th>
+            <td id="profile-email">Loading...</td>
+          </tr>
+          <tr>
+            <th>Codeforces Handle</th>
+            <td id="profile-handle">Loading...</td>
+          </tr>
+          <tr>
+            <th>Member Since</th>
+            <td id="profile-created">Loading...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── Update CF Handle ────────────────────────────────────── -->
+  <div class="panel">
+    <div class="panel-title">Update Codeforces Handle</div>
+    <div class="panel-body">
+      <div id="handle-msg" class="msg-error" style="display:none;"></div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <label for="new-handle-input">New Handle:</label>
+        <input type="text" id="new-handle-input" placeholder="e.g. tourist" style="width:220px;" maxlength="40">
+        <button id="update-handle-btn" type="button">Update Handle</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Subscription Status ─────────────────────────────────── -->
+  <div class="panel">
+    <div class="panel-title">Subscription</div>
+    <div class="panel-body">
+      <table style="width:auto;min-width:360px;">
+        <tbody>
+          <tr>
+            <th style="width:160px;">Plan</th>
+            <td id="sub-plan">Loading...</td>
+          </tr>
+          <tr>
+            <th>Status</th>
+            <td id="sub-status">Loading...</td>
+          </tr>
+          <tr>
+            <th>Expiry</th>
+            <td id="sub-expiry">Loading...</td>
+          </tr>
+          <tr>
+            <th>AI Code Analysis</th>
+            <td id="sub-ai-access">Loading...</td>
+          </tr>
+        </tbody>
+      </table>
+      <div style="margin-top:10px;">
+        <a href="/subscription.html" class="btn">Manage Subscription &rarr;</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Tag Mastery Badges ───────────────────────────────────── -->
+  <div class="panel">
+    <div class="panel-title">Tag Mastery Badges</div>
+    <div class="panel-body">
+      <p style="font-size:11px;color:#555;margin:0 0 8px 0;">
+        Awarded when your weakness score for a tag drops below 10.
+        Sync your dashboard data to update badges.
+      </p>
+      <div id="badges-container">
+        <span class="loading-text">Loading...</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Danger Zone ─────────────────────────────────────────── -->
+  <div class="panel">
+    <div class="panel-title">Account Actions</div>
+    <div class="panel-body">
+      <button id="signout-btn" type="button" class="btn-danger">Sign Out</button>
+      &nbsp;
+      <span style="font-size:11px;color:#666;">Signs you out on this device.</span>
+    </div>
+  </div>
+
+</div><!-- /.container -->
+
+<!-- ── Scripts ──────────────────────────────────────────────── -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="/js/firebase-client.js"></script>
+<script src="/js/cf-api.js"></script>
+<script src="/js/auth.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  let _userId  = null;
+  let _profile = null;
+
+  window.addEventListener('DOMContentLoaded', async function () {
+    const session = await Auth.initPage(true);
+    if (!session) return;
+
+    _userId = session.user.id;
+
+    // Populate email from session
+    document.getElementById('profile-email').textContent = session.user.email || '—';
+
+    try {
+      _profile = await FirebaseClient.getProfile(_userId);
+      _renderProfile(_profile);
+    } catch (e) {
+      Auth.showMsg('page-msg', 'Failed to load profile: ' + e.message, 'error');
+    }
+
+    _wireButtons();
+  });
+
+  function _renderProfile(p) {
+    document.getElementById('profile-handle').textContent  = p.cf_handle || '(not set)';
+    document.getElementById('profile-created').textContent =
+      p.created_at ? new Date(p.created_at).toLocaleDateString() : '—';
+    document.getElementById('new-handle-input').value = p.cf_handle || '';
+
+    // Subscription
+    var status = p.subscription_status || 'inactive';
+    var isActive = status === 'active';
+    document.getElementById('sub-plan').textContent      = isActive ? 'Pro (&#8377;1/month)' : 'Free';
+    document.getElementById('sub-plan').innerHTML        = isActive ? 'Pro (&#8377;1/month)' : 'Free';
+    document.getElementById('sub-status').textContent    = status.charAt(0).toUpperCase() + status.slice(1);
+    document.getElementById('sub-status').style.color   = isActive ? '#006600' : '#555555';
+    document.getElementById('sub-expiry').textContent    =
+      p.subscription_expiry ? new Date(p.subscription_expiry).toLocaleDateString() : '—';
+    document.getElementById('sub-ai-access').innerHTML  = isActive
+      ? '<span style="color:#006600;font-weight:bold;">Enabled</span>'
+      : '<span style="color:#888;">Disabled — <a href="/subscription.html">Upgrade for &#8377;1/month</a></span>';
+
+    // Badges
+    var badgesEl = document.getElementById('badges-container');
+    var badges = Array.isArray(p.badges) ? p.badges : [];
+    if (badges.length === 0) {
+      badgesEl.innerHTML = '<span style="font-size:12px;color:#555;">No mastery badges yet. ' +
+        'Reduce your weakness score below 10 for a tag to earn one.</span>';
+    } else {
+      badgesEl.innerHTML = badges.map(function (tag) {
+        return '<span class="badge badge-gold">&#9733; ' + _esc(tag) + '</span>';
+      }).join('');
+    }
+  }
+
+  function _wireButtons() {
+    // Update handle
+    document.getElementById('update-handle-btn').addEventListener('click', async function () {
+      var input  = document.getElementById('new-handle-input');
+      var handle = input.value.trim();
+      var btn    = this;
+
+      if (!handle) {
+        Auth.showMsg('handle-msg', 'Handle cannot be empty.', 'error');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Validating...';
+      Auth.hideMsg('handle-msg');
+
+      try {
+        var [userInfo, ratingHistory] = await Promise.all([
+          CFApi.fetchUserInfo(handle),
+          CFApi.fetchRatingHistory(handle)
+        ]);
+        CFApi.validateHandle(handle, ratingHistory);
+
+        _profile = await FirebaseClient.updateProfile(_userId, { cf_handle: handle });
+        document.getElementById('profile-handle').textContent = handle;
+        Auth.showMsg('handle-msg',
+          'Handle updated to "' + handle + '" (rating: ' + (userInfo.rating || '?') + '). Go to the Dashboard to sync.',
+          'success');
+      } catch (e) {
+        Auth.showMsg('handle-msg', 'Error: ' + e.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Update Handle';
+      }
+    });
+
+    // Sign out
+    document.getElementById('signout-btn').addEventListener('click', async function () {
+      this.disabled = true;
+      this.textContent = 'Signing out...';
+      try {
+        await FirebaseClient.signOut();
+      } catch (_) {
+        window.location.replace('/index.html');
+      }
+    });
+  }
+
+  function _esc(str) {
+    return String(str || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+}());
+</script>
+</body>
+</html>

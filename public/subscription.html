@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pro Access — CF Weakness Tracker</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .sub-panel {
+      max-width: 600px;
+      margin: 20px auto;
+      border: 1px solid #BBBBBB;
+      background: #FFFFFF;
+    }
+    .sub-header {
+      background: #F0F0F0;
+      border-bottom: 1px solid #BBBBBB;
+      padding: 10px;
+      font-weight: bold;
+      color: #333;
+    }
+    .sub-body { padding: 20px; }
+    .price-box {
+      border: 1px solid #E1E1E1;
+      padding: 15px;
+      margin: 15px 0;
+      background: #FAFAFA;
+      text-align: center;
+    }
+    .price-tag {
+      font-size: 28px;
+      font-weight: bold;
+      color: #3D7EBB;
+    }
+    .price-sub {
+      font-size: 12px;
+      color: #888;
+      margin-top: 4px;
+    }
+    .features-list {
+      margin: 15px 0 20px 20px;
+      color: #444;
+      line-height: 1.8;
+      text-align: left;
+    }
+    .btn-large {
+      padding: 10px 24px;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      background: #EFEFEF;
+      border: 1px solid #999;
+      color: #000;
+    }
+    .btn-large:hover:not(:disabled) { background: #E1E1E1; border-color: #666; }
+    .btn-large:disabled { color: #999; cursor: not-allowed; }
+    .status-badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border: 1px solid #A1A1A1;
+      background: #EFEFEF;
+      font-weight: bold;
+    }
+    .status-active { border-color: #00A000; background: #E0FFE0; color: #006000; }
+    .expiry-note { font-size: 12px; color: #555; margin-top: 8px; }
+  </style>
+</head>
+<body>
+
+<!-- ── Navigation ───────────────────────────────────────────── -->
+<nav class="navbar" role="navigation" aria-label="Main navigation">
+  <div class="nav-inner">
+    <div class="nav-logo"><a href="/dashboard.html">CF Weakness Tracker</a></div>
+    <button class="hamburger" id="hamburger-btn" aria-label="Toggle navigation" aria-expanded="false">&#9776;</button>
+    <ul class="nav-links" id="nav-links">
+      <li><a href="/dashboard.html">Dashboard</a></li>
+      <li><a href="/charts.html">Weakness Charts</a></li>
+      <li><a href="/compiler.html">Compiler</a></li>
+      <li><a href="/subscription.html" style="font-weight:bold;">Subscription</a></li>
+      <li><a href="/profile.html">Profile</a></li>
+      <li><a href="#" id="logout-btn">Logout</a></li>
+    </ul>
+  </div>
+</nav>
+
+<!-- ── Main Content ─────────────────────────────────────────── -->
+<div class="container">
+
+  <div class="sub-panel">
+    <div class="sub-header">Pro Access — AI Code Analysis</div>
+    <div class="sub-body">
+
+      <div id="current-status-container" style="margin-bottom:20px; font-size:13px;">
+        Loading subscription status...
+      </div>
+
+      <!-- Shown only to free users -->
+      <div class="price-box" id="subscribe-box" style="display:none;">
+        <div class="price-tag">₹1</div>
+        <div class="price-sub">One-time payment · 30 days of Pro access · No autopay</div>
+
+        <ul class="features-list" style="max-width:400px; margin:15px auto;">
+          <li>✓ <strong>Unlimited AI Code Analysis</strong> for compilation and runtime errors</li>
+          <li>✓ Explanations tailored to Codeforces problems</li>
+          <li>✓ Hints that guide you without revealing the solution</li>
+          <li>✓ Access lasts 30 days from payment date</li>
+        </ul>
+
+        <div id="payment-error" class="msg-error" style="display:none; text-align:left; margin-bottom:10px;"></div>
+
+        <button id="pay-btn" class="btn-large" type="button">Pay ₹1 — Get 30 Days Pro Access</button>
+        <div style="font-size:11px; color:#888; margin-top:8px;">Secured by Razorpay</div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- ── Scripts ──────────────────────────────────────────────── -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>`n<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>`n<script src="/js/firebase-client.js"></script>
+<script src="/js/auth.js"></script>
+<script>
+(function() {
+  'use strict';
+
+  const BACKEND_URL = '';  // relative path — works on localhost and Vercel
+  let _session = null;
+  let _profile = null;
+
+  window.addEventListener('DOMContentLoaded', async function() {
+    _session = await Auth.initPage(true);
+    if (!_session) return;
+
+    await loadSubscriptionStatus();
+
+    const payBtn = document.getElementById('pay-btn');
+    if (payBtn) payBtn.addEventListener('click', handlePayment);
+  });
+
+  async function loadSubscriptionStatus() {
+    const statusContainer = document.getElementById('current-status-container');
+    const subscribeBox    = document.getElementById('subscribe-box');
+
+    try {
+      _profile = await FirebaseClient.ensureProfile(_session);
+
+      const status = _profile.subscription_status;
+      const expiry = _profile.subscription_expiry;
+
+      if (status === 'active' && expiry && new Date(expiry) > new Date()) {
+        const expiryDate = new Date(expiry);
+        const daysLeft   = Math.ceil((expiryDate - new Date()) / (1000 * 60 * 60 * 24));
+
+        statusContainer.innerHTML = `
+          Current Status: <span class="status-badge status-active">ACTIVE PRO</span>
+          <div class="expiry-note">
+            Expires: <strong>${expiryDate.toLocaleDateString('en-IN', { day:'numeric', month:'long', year:'numeric' })}</strong>
+            &nbsp;(${daysLeft} day${daysLeft !== 1 ? 's' : ''} remaining)
+          </div>
+          <div style="margin-top:15px;">
+            <a href="/compiler.html" style="color:#3D7EBB; text-decoration:none;">→ Go to Compiler with AI Analysis</a>
+          </div>
+        `;
+        subscribeBox.style.display = 'none';
+      } else {
+        statusContainer.innerHTML = `
+          Current Status: <span class="status-badge">FREE PLAN</span>
+          <div class="expiry-note" style="margin-top:8px;">
+            Upgrade to Pro to unlock AI Code Analysis on the Compiler page.
+          </div>
+        `;
+        subscribeBox.style.display = 'block';
+      }
+    } catch (e) {
+      statusContainer.innerHTML = '<span style="color:#CC0000">Error loading profile: ' + e.message + '</span>';
+    }
+  }
+
+  async function handlePayment() {
+    const btn    = document.getElementById('pay-btn');
+    const errBox = document.getElementById('payment-error');
+
+    btn.disabled     = true;
+    btn.textContent  = 'Initializing...';
+    errBox.style.display = 'none';
+
+    try {
+      // 1. Create a Razorpay order via backend
+      const resp = await fetch(BACKEND_URL + '/api/subscription/create-order', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + _session.access_token }
+      });
+
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || 'Failed to initialize payment');
+
+      // 2. Open Razorpay Checkout (one-time order, no subscription)
+      const options = {
+        key:         data.key_id,
+        amount:      data.amount,
+        currency:    data.currency,
+        order_id:    data.order_id,
+        name:        'CF Weakness Tracker',
+        description: '30 Days Pro Access',
+        prefill:     { email: _session.user.email },
+        theme:       { color: '#3D7EBB' },
+
+        handler: async function(response) {
+          btn.textContent = 'Verifying payment...';
+
+          try {
+            // 3. Verify signature on backend and activate subscription
+            const verifyResp = await fetch(BACKEND_URL + '/api/subscription/verify-payment', {
+              method: 'POST',
+              headers: {
+                'Authorization': 'Bearer ' + _session.access_token,
+                'Content-Type':  'application/json'
+              },
+              body: JSON.stringify({
+                razorpay_order_id:   response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature:  response.razorpay_signature
+              })
+            });
+
+            const result = await verifyResp.json();
+            if (!verifyResp.ok) throw new Error(result.error || 'Verification failed');
+
+            // 4. Success — reload status
+            await loadSubscriptionStatus();
+            alert('Payment successful! You now have 30 days of Pro access.');
+
+          } catch (verifyErr) {
+            errBox.textContent = 'Payment received but verification failed: ' + verifyErr.message + '. Contact support.';
+            errBox.style.display = 'block';
+          }
+
+          btn.disabled    = false;
+          btn.textContent = 'Pay ₹1 — Get 30 Days Pro Access';
+        }
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.on('payment.failed', function(response) {
+        btn.disabled    = false;
+        btn.textContent = 'Pay ₹1 — Get 30 Days Pro Access';
+        errBox.textContent = 'Payment failed: ' + response.error.description;
+        errBox.style.display = 'block';
+      });
+
+      rzp.open();
+
+    } catch (e) {
+      btn.disabled    = false;
+      btn.textContent = 'Pay ₹1 — Get 30 Days Pro Access';
+      errBox.textContent = e.message;
+      errBox.style.display = 'block';
+    }
+  }
+
+})();
+</script>
+</body>
+</html>
+
+
+

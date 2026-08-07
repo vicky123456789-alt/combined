@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard — CF Weakness Tracker</title>
+  <meta name="description" content="Your Codeforces weakness scores, recommendations, and streak tracker.">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<!-- ── Navigation ───────────────────────────────────────────── -->
+<nav class="navbar" role="navigation" aria-label="Main navigation">
+  <div class="nav-inner">
+    <div class="nav-logo"><a href="/dashboard.html">CF Weakness Tracker</a></div>
+    <button class="hamburger" id="hamburger-btn" aria-label="Toggle navigation" aria-expanded="false">&#9776;</button>
+    <ul class="nav-links" id="nav-links">
+      <li><a href="/dashboard.html">Dashboard</a></li>
+      <li><a href="/charts.html">Weakness Charts</a></li>
+      <li><a href="/compiler.html">Compiler</a></li>
+      <li><a href="/subscription.html">Subscription</a></li>
+      <li><a href="/profile.html">Profile</a></li>
+      <li><a href="#" id="logout-btn">Logout</a></li>
+    </ul>
+  </div>
+</nav>
+
+<!-- ── Main Content ─────────────────────────────────────────── -->
+<div class="container">
+
+  <!-- Global status message -->
+  <div id="page-msg" class="msg-info" style="display:none;"></div>
+
+  <!-- ── Handle Setup (shown when cf_handle is not set) ─────── -->
+  <div id="handle-setup" class="panel" style="display:none;">
+    <div class="panel-title">Setup — Enter Your Codeforces Handle</div>
+    <div class="panel-body">
+      <p style="font-size:12px;margin:0 0 10px 0;">
+        Enter your Codeforces username to start tracking your weaknesses.
+        You need at least <strong>10 rated contest</strong> participations.
+      </p>
+      <div id="handle-setup-msg" class="msg-error" style="display:none;"></div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <label for="cf-handle-input" style="white-space:nowrap;">CF Handle:</label>
+        <input type="text" id="cf-handle-input" placeholder="e.g. tourist" style="width:200px;" maxlength="40">
+        <button id="save-handle-btn" type="button">Save Handle</button>
+        <span class="loading-text" id="handle-save-loading" style="display:none;">Validating...</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Sync Bar (shown when cf_handle is set) ─────────────── -->
+  <div id="sync-section" class="panel" style="display:none;">
+    <div class="panel-title">Data Sync</div>
+    <div class="panel-body">
+      <div class="sync-bar">
+        <span>Handle: <strong id="handle-display" class="handle-info">—</strong></span>
+        <span>Rating: <strong id="rating-display">—</strong></span>
+        <span id="sync-status-text" class="loading-text">Ready to sync.</span>
+        <button id="sync-btn" type="button">&#8635; Sync CF Data</button>
+        <button id="change-handle-btn" type="button" style="font-size:11px;">Change Handle</button>
+      </div>
+      <div id="sync-progress" style="display:none;margin-top:6px;">
+        <span class="loading-text" id="sync-progress-text">Fetching data...</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Streak Widget ──────────────────────────────────────── -->
+  <div id="streak-section" class="panel" style="display:none;">
+    <div class="panel-title">Activity Streak</div>
+    <div class="panel-body">
+      <div class="streak-widget" id="streak-widget">
+        <div class="streak-box">
+          <span class="streak-num" id="streak-current">—</span>
+          <span class="streak-label">Current Streak (days)</span>
+        </div>
+        <div class="streak-box">
+          <span class="streak-num" id="streak-longest">—</span>
+          <span class="streak-label">Longest Streak (days)</span>
+        </div>
+        <div class="streak-box">
+          <span class="streak-num" id="streak-total-solved">—</span>
+          <span class="streak-label">Total Problems Solved</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Weakness Scores Table ──────────────────────────────── -->
+  <div class="panel" id="weakness-panel">
+    <div class="panel-title">Weakness Scores — Top Tags</div>
+    <div class="panel-body" style="padding:0;">
+      <table id="weakness-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Tag</th>
+            <th>Weakness Score</th>
+            <th>Failure Rate</th>
+            <th>Attempted</th>
+            <th>Failed</th>
+            <th>Bias Score</th>
+          </tr>
+        </thead>
+        <tbody id="weakness-tbody">
+          <!-- Skeleton rows -->
+          <tr class="skeleton"><td>—</td><td>Loading...</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+          <tr class="skeleton"><td>—</td><td>Loading...</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+          <tr class="skeleton"><td>—</td><td>Loading...</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── Recommendations ────────────────────────────────────── -->
+  <div class="panel" id="recs-panel" style="display:none;">
+    <div class="panel-title">Recommended Problems — Practice These Next</div>
+    <div class="panel-body" style="padding:0;" id="recs-body">
+      <p class="loading-text" style="padding:8px;">
+        Sync your data to generate recommendations.
+      </p>
+    </div>
+  </div>
+
+</div><!-- /.container -->
+
+<!-- ── Scripts ──────────────────────────────────────────────── -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="/js/firebase-client.js"></script>
+<script src="/js/cf-api.js"></script>
+<script src="/js/weakness-engine.js"></script>
+<script src="/js/auth.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  const CHARTS_SERVICE = '';  // relative path — /generate-charts proxied via Vercel
+  let _userId   = null;
+  let _profile  = null;
+  let _userRating = 1200;
+
+  // ── Bootstrap ────────────────────────────────────────────
+  window.addEventListener('DOMContentLoaded', async function () {
+    const session = await Auth.initPage(true);
+    if (!session) return;
+
+    _userId = session.user.id;
+
+    try {
+      _profile = await FirebaseClient.ensureProfile(session);
+    } catch (e) {
+      Auth.showMsg('page-msg', 'Failed to load profile: ' + e.message, 'error');
+      return;
+    }
+
+    if (!_profile.cf_handle) {
+      _showHandleSetup();
+    } else {
+      _showDashboard(_profile.cf_handle);
+      _loadCachedData();
+    }
+
+    _wireButtons();
+  });
+
+  // ── UI state helpers ─────────────────────────────────────
+  function _showHandleSetup() {
+    document.getElementById('handle-setup').style.display = 'block';
+    document.getElementById('sync-section').style.display = 'none';
+    _clearWeaknessTable();
+  }
+
+  function _showDashboard(handle) {
+    document.getElementById('handle-setup').style.display   = 'none';
+    document.getElementById('sync-section').style.display   = 'block';
+    document.getElementById('streak-section').style.display = 'block';
+    document.getElementById('handle-display').textContent   = handle;
+    document.getElementById('recs-panel').style.display     = 'block';
+  }
+
+  function _setStatus(text, isError) {
+    const el = document.getElementById('sync-status-text');
+    if (!el) return;
+    el.textContent = text;
+    el.style.color = isError ? '#880000' : '#555555';
+  }
+
+  function _setSyncProgress(text) {
+    const wrap = document.getElementById('sync-progress');
+    const label = document.getElementById('sync-progress-text');
+    if (!wrap || !label) return;
+    if (text) {
+      wrap.style.display = 'block';
+      label.textContent = text;
+    } else {
+      wrap.style.display = 'none';
+    }
+  }
+
+  function _clearWeaknessTable() {
+    document.getElementById('weakness-tbody').innerHTML =
+      '<tr><td colspan="7" class="loading-text" style="padding:8px;">Sync your CF data to see weakness scores.</td></tr>';
+  }
+
+  // ── Button wiring ────────────────────────────────────────
+  function _wireButtons() {
+    document.getElementById('save-handle-btn').addEventListener('click', _saveHandle);
+    document.getElementById('sync-btn').addEventListener('click', _syncData);
+    document.getElementById('change-handle-btn').addEventListener('click', function () {
+      document.getElementById('handle-setup').style.display = 'block';
+      document.getElementById('cf-handle-input').value = _profile.cf_handle || '';
+    });
+  }
+
+  // ── Save CF handle ────────────────────────────────────────
+  async function _saveHandle() {
+    const input  = document.getElementById('cf-handle-input');
+    const handle = input.value.trim();
+    const btn    = document.getElementById('save-handle-btn');
+
+    if (!handle) {
+      Auth.showMsg('handle-setup-msg', 'Please enter a valid Codeforces handle.', 'error');
+      return;
+    }
+
+    btn.disabled = true;
+    document.getElementById('handle-save-loading').style.display = 'inline';
+    Auth.hideMsg('handle-setup-msg');
+
+    try {
+      // Validate with CF API
+      const [userInfo, ratingHistory] = await Promise.all([
+        CFApi.fetchUserInfo(handle),
+        CFApi.fetchRatingHistory(handle)
+      ]);
+      CFApi.validateHandle(handle, ratingHistory);
+
+      _userRating = userInfo.rating || 1200;
+
+      // Save to Supabase
+      _profile = await FirebaseClient.updateProfile(_userId, { cf_handle: handle });
+      document.getElementById('rating-display').textContent = _userRating;
+      _showDashboard(handle);
+      _clearWeaknessTable();
+    } catch (e) {
+      Auth.showMsg('handle-setup-msg', 'Error: ' + e.message, 'error');
+    } finally {
+      btn.disabled = false;
+      document.getElementById('handle-save-loading').style.display = 'none';
+    }
+  }
+
+  // ── Load cached data from Supabase ───────────────────────
+  async function _loadCachedData() {
+    try {
+      const snapshots = await FirebaseClient.getLatestSnapshot(_userId);
+      if (snapshots && snapshots.length > 0) {
+        _renderWeaknessTable(snapshots);
+        _setStatus('Showing cached data. Click "Sync CF Data" to refresh.');
+      } else {
+        _clearWeaknessTable();
+        _setStatus('No cached data. Click "Sync CF Data" to fetch your submissions.');
+      }
+    } catch (e) {
+      _setStatus('Could not load cached data: ' + e.message, true);
+    }
+  }
+
+  // ── Main sync ────────────────────────────────────────────
+  async function _syncData() {
+    const btn = document.getElementById('sync-btn');
+    btn.disabled = true;
+    btn.textContent = 'Syncing...';
+    Auth.hideMsg('page-msg');
+
+    try {
+      // 1. Fetch user info + rating history
+      _setSyncProgress('Fetching user info from Codeforces...');
+      const [userInfo, ratingHistory] = await Promise.all([
+        CFApi.fetchUserInfo(_profile.cf_handle),
+        CFApi.fetchRatingHistory(_profile.cf_handle)
+      ]);
+
+      CFApi.validateHandle(_profile.cf_handle, ratingHistory);
+      _userRating = userInfo.rating || 1200;
+      document.getElementById('rating-display').textContent = _userRating + ' (' + (userInfo.rank || '') + ')';
+
+      // 2. Fetch all submissions
+      _setSyncProgress('Fetching submissions (may take a moment for large accounts)...');
+      const submissions = await CFApi.fetchSubmissions(_profile.cf_handle);
+      _setSyncProgress('Processing ' + submissions.length + ' submissions...');
+
+      // 3. Compute scores
+      const tagScores  = WeaknessEngine.computeWeaknessScores(submissions, _userRating);
+      const biasScores = WeaknessEngine.computeBiasScores(submissions);
+      const streak     = WeaknessEngine.computeStreak(submissions);
+      const badges     = WeaknessEngine.computeTagMasteryBadges(tagScores);
+
+      // Count total solved
+      const solvedSet = CFApi.buildSolvedSet(submissions);
+      document.getElementById('streak-current').textContent = streak.current;
+      document.getElementById('streak-longest').textContent = streak.longest;
+      document.getElementById('streak-total-solved').textContent = solvedSet.size;
+
+      // 4. Save to Supabase
+      _setSyncProgress('Saving ' + submissions.length + ' submissions to database...');
+      await FirebaseClient.upsertProblems(_userId, submissions);
+
+      _setSyncProgress('Saving weakness snapshots...');
+      const snapshotRows = WeaknessEngine.buildSnapshotRows(_userId, tagScores, biasScores);
+      await FirebaseClient.upsertWeaknessSnapshots(_userId, snapshotRows);
+      await FirebaseClient.updateProfile(_userId, { badges: badges });
+
+      // 5. Render weakness table
+      if (tagScores.length === 0) {
+        _clearWeaknessTable();
+        Auth.showMsg('page-msg', 'No weakness data found. Try competing in more rated contests.', 'warn');
+      } else {
+        const tableData = tagScores.map(function (ts) {
+          return {
+            tag: ts.tag,
+            weakness_score: ts.weaknessScore,
+            failure_rate: ts.failureRate,
+            attempted_count: ts.attemptedCount,
+            failed_count: ts.failedCount,
+            bias_score: biasScores.get(ts.tag) || 0
+          };
+        });
+        _renderWeaknessTable(tableData);
+      }
+
+      // 6. Recommendations
+      const weakTags = WeaknessEngine.getTop5WeakestTags(tagScores);
+      if (weakTags.length > 0) {
+        _setSyncProgress('Fetching recommended problems (downloading problemset ~3MB)...');
+        try {
+          const problemset = await CFApi.fetchProblemset();
+          const recs = WeaknessEngine.generateRecommendations(
+            weakTags, _userRating, solvedSet, problemset, tagScores
+          );
+          _renderRecommendations(recs, weakTags, tagScores);
+        } catch (recErr) {
+          document.getElementById('recs-body').innerHTML =
+            '<p class="loading-text" style="padding:8px;">Could not fetch recommendations: ' + recErr.message + '</p>';
+        }
+      }
+
+      _setSyncProgress(null);
+      _setStatus('Last synced: ' + new Date().toLocaleTimeString());
+
+    } catch (e) {
+      _setStatus('Sync error: ' + e.message, true);
+      _setSyncProgress(null);
+      Auth.showMsg('page-msg', 'Sync failed: ' + e.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '\u21BB Sync CF Data';
+    }
+  }
+
+  // ── Render weakness table ─────────────────────────────────
+  function _renderWeaknessTable(data) {
+    const tbody = document.getElementById('weakness-tbody');
+    if (!data || data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" class="loading-text" style="padding:8px;">No data.</td></tr>';
+      return;
+    }
+
+    var html = '';
+    var slice = data.slice(0, 20); // show top 20
+    slice.forEach(function (row, i) {
+      var score = parseFloat(row.weakness_score) || 0;
+      var scoreClass = score >= 60 ? 'score-high' : (score >= 30 ? 'score-med' : 'score-low');
+      var failRate = row.failure_rate != null
+        ? (row.failure_rate * 100).toFixed(1) + '%'
+        : (row.failed_count && row.attempted_count
+            ? ((row.failed_count / row.attempted_count) * 100).toFixed(1) + '%'
+            : '—');
+      var biasScore = row.bias_score != null ? parseFloat(row.bias_score).toFixed(1) : '—';
+
+      html += '<tr>';
+      html += '<td>' + (i + 1) + '</td>';
+      html += '<td><a href="https://codeforces.com/problemset?tags=' + encodeURIComponent(row.tag) +
+              '" target="_blank">' + _esc(row.tag) + '</a></td>';
+      html += '<td class="' + scoreClass + '">' + score.toFixed(1) + '</td>';
+      html += '<td>' + failRate + '</td>';
+      html += '<td>' + (row.attempted_count || '—') + '</td>';
+      html += '<td>' + (row.failed_count || '—') + '</td>';
+      html += '<td>' + biasScore + '</td>';
+      html += '</tr>';
+    });
+    tbody.innerHTML = html;
+  }
+
+  // ── Render recommendations ────────────────────────────────
+  function _renderRecommendations(recs, weakTags, tagScores) {
+    const container = document.getElementById('recs-body');
+    const scoreMap = {};
+    tagScores.forEach(function (ts) { scoreMap[ts.tag] = ts.weaknessScore; });
+
+    var html = '';
+    weakTags.forEach(function (tag) {
+      var problems = recs[tag] || [];
+      var score = scoreMap[tag] ? scoreMap[tag].toFixed(1) : '—';
+
+      html += '<div class="rec-tag-header">Tag: ' + _esc(tag) + ' &nbsp;|&nbsp; Weakness Score: ' + score + '</div>';
+
+      if (problems.length === 0) {
+        html += '<table><tbody><tr><td colspan="4" class="loading-text">No qualifying problems found for this tag at your current rating.</td></tr></tbody></table>';
+        return;
+      }
+
+      html += '<table>';
+      html += '<thead><tr><th>#</th><th>Problem</th><th>Rating</th><th>Solve Count</th><th>Tags</th></tr></thead>';
+      html += '<tbody>';
+      problems.forEach(function (p, i) {
+        var tagsList = (p.tags || []).slice(0, 5).join(', ');
+        html += '<tr>';
+        html += '<td>' + (i + 1) + '</td>';
+        html += '<td><a href="' + _esc(p.url) + '" target="_blank">' + _esc(p.name) + '</a></td>';
+        html += '<td>' + (p.rating || '—') + '</td>';
+        html += '<td>' + (p.solveCount ? p.solveCount.toLocaleString() : '—') + '</td>';
+        html += '<td style="font-size:10px;color:#555;">' + _esc(tagsList) + '</td>';
+        html += '</tr>';
+      });
+      html += '</tbody></table>';
+    });
+
+    container.innerHTML = html || '<p class="loading-text" style="padding:8px;">No recommendations available.</p>';
+  }
+
+  // ── Escape HTML ───────────────────────────────────────────
+  function _esc(str) {
+    return String(str || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+}());
+</script>
+</body>
+</html>

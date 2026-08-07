@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>C++ Compiler — CF Weakness Tracker</title>
+  <meta name="description" content="In-browser C++ compiler powered by WebAssembly. No server. Unlimited runs. AI error analysis for Pro users.">
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    /* Compiler-specific styles */
+    #code-editor {
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 13px;
+      width: 100%;
+      min-height: 340px;
+      resize: vertical;
+      border: 1px solid #9B9B9B;
+      padding: 8px;
+      background: #FFFFFF;
+      color: #000000;
+      tab-size: 4;
+      line-height: 1.5;
+      white-space: pre;
+      overflow-wrap: normal;
+      overflow-x: auto;
+    }
+
+    #output-stdout, #output-stderr {
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 12px;
+      white-space: pre-wrap;
+      word-break: break-all;
+      min-height: 60px;
+      padding: 6px;
+      background: #FFFFFF;
+      border: 1px solid #C0C0C0;
+      margin-bottom: 4px;
+    }
+
+    /* Progress bar */
+    #compiler-progress-wrap {
+      margin-bottom: 6px;
+      border: 1px solid #BBBBBB;
+      background: #F0F0F0;
+      padding: 1px;
+    }
+
+    #compiler-progress-bar {
+      height: 14px;
+      background: #3D7EBB;
+      width: 0%;
+      transition: width 0.2s;
+    }
+
+    #compiler-progress-label {
+      font-size: 11px;
+      color: #555;
+      padding: 2px 4px;
+      font-family: Verdana, Arial, sans-serif;
+    }
+
+    /* Toolbar */
+    .compiler-toolbar {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 6px;
+    }
+
+    /* AI panel */
+    #ai-panel {
+      font-family: Verdana, Arial, Tahoma, sans-serif;
+      font-size: 12px;
+    }
+
+    #ai-response {
+      font-family: Verdana, Arial, Tahoma, sans-serif;
+      font-size: 12px;
+      white-space: pre-wrap;
+      padding: 8px;
+      background: #FFFEF0;
+      border: 1px solid #CCCCAA;
+      min-height: 60px;
+    }
+
+    #problem-link-input {
+      width: 100%;
+      font-size: 12px;
+    }
+
+    /* Line numbers label */
+    .editor-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      color: #555;
+      margin-bottom: 3px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Navigation ───────────────────────────────────────────── -->
+<nav class="navbar" role="navigation" aria-label="Main navigation">
+  <div class="nav-inner">
+    <div class="nav-logo"><a href="/dashboard.html">CF Weakness Tracker</a></div>
+    <button class="hamburger" id="hamburger-btn" aria-label="Toggle navigation" aria-expanded="false">&#9776;</button>
+    <ul class="nav-links" id="nav-links">
+      <li><a href="/dashboard.html">Dashboard</a></li>
+      <li><a href="/charts.html">Weakness Charts</a></li>
+      <li><a href="/compiler.html">Compiler</a></li>
+      <li><a href="/subscription.html">Subscription</a></li>
+      <li><a href="/profile.html">Profile</a></li>
+      <li><a href="#" id="logout-btn">Logout</a></li>
+    </ul>
+  </div>
+</nav>
+
+<!-- ── Main Content ─────────────────────────────────────────── -->
+<div class="container">
+
+  <div id="react-workspace-root" style="height: 100%; min-height: 800px; display: flex; flex-direction: column;"></div>
+</div><!-- /.container -->
+
+<!-- ── Scripts ──────────────────────────────────────────────── -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>`n<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>`n<script src="/js/firebase-client.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/compiler-ui.js"></script>
+<script type="module" src="/js/workspace.bundle.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  let _session = null;
+  window.addEventListener('DOMContentLoaded', async function () {
+    _session = await Auth.initPage(true);
+    if (!_session) return;
+    
+    // Initialize WASM compiler engine (doesn't hook old UI anymore)
+    CompilerUI.init();
+  });
+}());
+</script>
+</body>
+</html>
+
+
+

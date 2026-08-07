@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+</head>
+<body>
+  <script>
+    console.log("window.katex:", !!window.katex);
+    require('fs').writeFileSync('test-out.txt', 'window.katex: ' + (!!window.katex));
+  </script>
+</body>
+</html>

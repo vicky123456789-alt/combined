@@ -1,0 +1,24 @@
+{
+  "outputDirectory": "frontend",
+  "headers": [
+    {
+      "source": "/js/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
+      ]
+    }
+  ],
+  "routes": [
+    { "src": "/api/charts(.*)", "dest": "/api/charts" },
+    { "src": "/api(.*)",        "dest": "/api" },
+    { "src": "/health",         "dest": "/api" },
+    { "src": "/dashboard",      "dest": "/dashboard.html" },
+    { "src": "/compiler",       "dest": "/compiler.html" },
+    { "src": "/charts",         "dest": "/charts.html" },
+    { "src": "/subscription",   "dest": "/subscription.html" },
+    { "src": "/profile",        "dest": "/profile.html" },
+    { "src": "/login",          "dest": "/login.html" },
+    { "src": "/",               "dest": "/dashboard.html" },
+    { "src": "/(.*)",           "dest": "/$1" }
+  ]
+}

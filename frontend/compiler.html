@@ -1,0 +1,984 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Compiler — CF Weakness Tracker</title>
+  <meta name="description" content="Full-featured C++/Python/JS compiler with Monaco editor, AI code review, test case generation, and problem analysis.">
+  <link rel="stylesheet" href="/css/style.css">
+
+  <!-- KaTeX for math rendering in problem summaries -->
+  <!-- Loaded synchronously BEFORE Monaco's loader.js so it doesn't get swallowed by AMD -->
+  <link rel="stylesheet" href="/vendor/katex/katex.min.css">
+  <script src="/vendor/katex/katex.min.js"></script>
+  <script src="/vendor/katex/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]})"></script>
+
+  <!-- Marked for markdown rendering -->
+  <script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
+
+  <style>
+    /* ── Compiler page layout ─────────────────────────────── */
+    .compiler-root {
+      display: flex;
+      gap: 0;
+      height: calc(100vh - 60px); /* 60px = navbar height */
+      overflow: hidden;
+    }
+
+    /* Left panel: problem + test cases — scrolls as one column */
+    .left-panel {
+      width: 340px;
+      min-width: 220px;
+      max-width: 480px;
+      border-right: 2px solid #AAAAAA;
+      display: flex;
+      flex-direction: column;
+      background: #F5F5F5;
+      overflow-y: auto;   /* whole panel scrolls — no more cramped flex boxes */
+      resize: horizontal;
+    }
+
+    /* Right panel: editor + output + AI review */
+    .right-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-width: 0;
+    }
+
+    /* ── Toolbar ──────────────────────────────────────────── */
+    .editor-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      background: #1A3F6F;
+      border-bottom: 2px solid #0D2B52;
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+
+    .editor-toolbar select {
+      background: #0D2B52;
+      color: #C8DBEF;
+      border: 1px solid #3A6090;
+      padding: 2px 6px;
+      font-size: 12px;
+      font-family: Verdana, sans-serif;
+    }
+
+    .editor-toolbar button {
+      background: #2B5F9E;
+      color: #FFFFFF;
+      border: 1px solid #3A6090;
+      padding: 3px 12px;
+      font-size: 12px;
+      cursor: pointer;
+      font-family: Verdana, sans-serif;
+    }
+
+    .editor-toolbar button:hover { background: #3A7FC1; }
+    .editor-toolbar button:disabled { background: #555; cursor: not-allowed; color: #999; }
+
+    .editor-toolbar .run-btn {
+      background: #2D7A2D;
+      border-color: #1A5C1A;
+    }
+    .editor-toolbar .run-btn:hover:not(:disabled) { background: #3A9C3A; }
+
+    .toolbar-sep {
+      width: 1px;
+      height: 18px;
+      background: #3A6090;
+      margin: 0 2px;
+    }
+
+    .toolbar-label {
+      color: #C8DBEF;
+      font-size: 11px;
+      font-family: Verdana, sans-serif;
+    }
+
+    /* ── Monaco editor container ──────────────────────────── */
+    #monaco-editor {
+      flex: 1;
+      min-height: 0;
+    }
+
+    /* ── Output area ─────────────────────────────────────── */
+    .output-area {
+      height: 180px;
+      min-height: 100px;
+      max-height: 50%;
+      border-top: 2px solid #AAAAAA;
+      background: #1E1E1E;
+      overflow-y: auto;
+      flex-shrink: 0;
+      resize: vertical;
+    }
+
+    .output-area pre {
+      margin: 0;
+      padding: 8px;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 12px;
+      white-space: pre-wrap;
+      word-break: break-all;
+      color: #D4D4D4;
+    }
+
+    .output-area .out-label {
+      font-size: 10px;
+      font-weight: bold;
+      color: #888;
+      padding: 4px 8px 0;
+      font-family: Verdana, sans-serif;
+      text-transform: uppercase;
+    }
+
+    .output-area .stderr-text { color: #F48771; }
+    .output-area .stdout-text { color: #D4D4D4; }
+    .output-area .info-text   { color: #9CDCFE; }
+
+    /* ── Left panel sections ─────────────────────────────── */
+    .lp-section {
+      border-bottom: 1px solid #CCCCCC;
+      flex-shrink: 0;
+    }
+
+    .lp-section-title {
+      background: #1A3F6F;
+      color: #C8DBEF;
+      font-size: 11px;
+      font-family: Verdana, sans-serif;
+      font-weight: bold;
+      padding: 5px 8px;
+      cursor: pointer;
+      user-select: none;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .lp-section-title:hover { background: #0D2B52; }
+
+    .lp-section-body {
+      padding: 8px;
+      font-size: 12px;
+      font-family: Verdana, sans-serif;
+    }
+
+    /* Problem URL input */
+    #problem-url-input {
+      width: 100%;
+      font-size: 11px;
+      margin-bottom: 4px;
+      padding: 3px 5px;
+      border: 1px solid #AAAAAA;
+      font-family: Verdana, sans-serif;
+    }
+
+    /* Problem summary display */
+    #problem-summary-display {
+      font-size: 12px;
+      line-height: 1.6;
+      border-top: 2px solid #AAAAAA;
+      padding: 10px;
+      background: #FAFAFA;
+      color: #222;
+      flex-shrink: 0;
+    }
+
+    #problem-summary-display h2 { font-size: 13px; margin: 8px 0 4px; color: #1A3F6F; }
+    #problem-summary-display h3 { font-size: 12px; margin: 6px 0 3px; color: #1A3F6F; }
+    #problem-summary-display p  { margin: 0 0 6px 0; }
+    #problem-summary-display code { font-family: Consolas, monospace; background: #EEE; padding: 0 2px; border-radius: 2px; }
+    #problem-summary-display pre  { font-family: Consolas, monospace; background: #EEE; padding: 4px; white-space: pre-wrap; border-radius: 2px; }
+    /* KaTeX display math — center it nicely */
+    #problem-summary-display .katex-display { margin: 8px 0; overflow-x: auto; }
+    #problem-summary-display .katex { font-size: 1.1em; }
+
+    /* ── Test cases ─────────────────────────────────────── */
+    .test-cases-list {
+      overflow-y: auto;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .test-case-card {
+      border: 1px solid #CCCCCC;
+      margin-bottom: 6px;
+      background: #FFFFFF;
+      font-size: 11px;
+      font-family: Verdana, sans-serif;
+    }
+
+    .tc-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 3px 6px;
+      background: #E8E8E8;
+      font-weight: bold;
+    }
+
+    .tc-header .tc-status {
+      font-size: 10px;
+      font-weight: bold;
+      padding: 1px 5px;
+    }
+
+    .tc-status-ac      { color: #007700; background: #E6FFE6; }
+    .tc-status-wa      { color: #CC0000; background: #FFE6E6; }
+    .tc-status-error   { color: #CC0000; background: #FFE6E6; }
+    .tc-status-running { color: #0055CC; background: #E6F0FF; }
+    .tc-status-pending { color: #555555; background: #F0F0F0; }
+
+    .tc-body { padding: 4px 6px; }
+
+    .tc-body label { display: block; font-size: 10px; color: #777; margin: 2px 0 1px; text-transform: uppercase; }
+
+    .tc-body textarea {
+      width: 100%;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 11px;
+      border: 1px solid #CCC;
+      padding: 2px 4px;
+      resize: vertical;
+      min-height: 36px;
+      box-sizing: border-box;
+    }
+
+    .tc-output-box {
+      background: #1E1E1E;
+      color: #D4D4D4;
+      font-family: Consolas, monospace;
+      font-size: 11px;
+      padding: 3px 5px;
+      white-space: pre-wrap;
+      word-break: break-all;
+      max-height: 80px;
+      overflow-y: auto;
+    }
+
+    .tc-output-error { color: #F48771; }
+
+    /* ── AI Review sliding panel ─────────────────────────── */
+    #ai-review-panel {
+      position: fixed;
+      right: 0;
+      top: 0;
+      bottom: 0;
+      width: 420px;
+      max-width: 90vw;
+      background: #1E1E1E;
+      color: #D4D4D4;
+      transform: translateX(100%);
+      transition: transform 0.25s ease;
+      z-index: 200;
+      display: flex;
+      flex-direction: column;
+      border-left: 2px solid #3A6090;
+    }
+
+    #ai-review-panel.open { transform: translateX(0); }
+
+    .ai-panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 12px;
+      background: #1A3F6F;
+      border-bottom: 1px solid #3A6090;
+      font-family: Verdana, sans-serif;
+      font-size: 13px;
+      font-weight: bold;
+      color: #FFFFFF;
+    }
+
+    .ai-panel-header button {
+      background: none;
+      border: none;
+      color: #C8DBEF;
+      font-size: 18px;
+      cursor: pointer;
+      padding: 0 4px;
+    }
+
+    #ai-review-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px;
+      font-family: Verdana, Arial, sans-serif;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    #ai-review-content h2 { font-size: 13px; color: #9CDCFE; margin: 10px 0 4px; }
+    #ai-review-content h3 { font-size: 12px; color: #9CDCFE; margin: 8px 0 3px; }
+    #ai-review-content code { font-family: Consolas, monospace; background: #2D2D2D; padding: 0 3px; color: #CE9178; }
+    #ai-review-content pre  { background: #2D2D2D; padding: 8px; white-space: pre-wrap; color: #D4D4D4; }
+    #ai-review-content p    { margin: 0 0 6px; }
+    #ai-review-content ul, #ai-review-content ol { margin: 0 0 6px; padding-left: 18px; }
+    #ai-review-content strong { color: #DCDCAA; }
+
+    .ai-cursor {
+      display: inline-block;
+      width: 2px;
+      height: 1em;
+      background: #C8DBEF;
+      animation: blink 0.7s step-end infinite;
+      vertical-align: text-bottom;
+      margin-left: 1px;
+    }
+
+    @keyframes blink { 50% { opacity: 0; } }
+
+    /* ── Misc helpers ─────────────────────────────────────── */
+    .add-tc-btn {
+      width: 100%;
+      border: 1px dashed #AAAAAA;
+      background: none;
+      color: #555;
+      padding: 4px;
+      font-size: 11px;
+      cursor: pointer;
+      font-family: Verdana, sans-serif;
+      margin-bottom: 4px;
+    }
+
+    .add-tc-btn:hover { background: #EEEEEE; }
+
+    .generating-spinner {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border: 2px solid #C8DBEF;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      margin-right: 5px;
+      vertical-align: middle;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Responsive (narrow screens) ────────────────────── */
+    @media (max-width: 700px) {
+      .compiler-root { flex-direction: column; height: auto; }
+      .left-panel { width: 100%; max-width: 100%; border-right: none; border-bottom: 2px solid #AAAAAA; resize: none; }
+      .right-panel { height: 600px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Navigation ───────────────────────────────────────── -->
+<nav class="navbar" role="navigation" aria-label="Main navigation">
+  <div class="nav-inner">
+    <div class="nav-logo"><a href="/dashboard.html">CF Weakness Tracker</a></div>
+    <button class="hamburger" id="hamburger-btn" aria-label="Toggle navigation" aria-expanded="false">&#9776;</button>
+    <ul class="nav-links" id="nav-links">
+      <li><a href="/dashboard.html">Dashboard</a></li>
+      <li><a href="/charts.html">Weakness Charts</a></li>
+      <li><a href="/compiler.html" class="active">Compiler</a></li>
+      <li><a href="/subscription.html">Subscription</a></li>
+      <li><a href="/profile.html">Profile</a></li>
+      <li><a href="#" id="logout-btn">Logout</a></li>
+    </ul>
+  </div>
+</nav>
+
+<!-- ── Compiler Root ─────────────────────────────────────── -->
+<div class="compiler-root">
+
+  <!-- ════ LEFT PANEL ════ -->
+  <div class="left-panel">
+
+    <!-- Problem section -->
+    <div class="lp-section">
+      <div class="lp-section-title" id="problem-section-title">
+        <span>&#10024; AI Test Generator</span>
+        <span id="problem-section-arrow">&#9660;</span>
+      </div>
+      <div class="lp-section-body" id="problem-section-body">
+        <textarea id="problem-text-input"
+          placeholder="Paste problem statement text here..."
+          style="width:100%;min-height:80px;font-family:Verdana,sans-serif;font-size:11px;border:1px solid #AAAAAA;padding:4px;resize:vertical;box-sizing:border-box;margin-bottom:6px;"
+        ></textarea>
+        <button id="generate-tests-btn" style="width:100%;font-size:11px;padding:4px 6px;margin-bottom:5px;">
+          &#10024; Generate Summary &amp; Tests
+        </button>
+        <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:#555;cursor:pointer;margin-bottom:4px;">
+          <input type="checkbox" id="auto-run-checkbox" checked style="cursor:pointer;"> Auto-run code after generating tests
+        </label>
+        <div id="problem-status-msg" style="display:none;font-size:11px;color:#555;"></div>
+      </div>
+    </div>
+
+    <!-- Test cases section — no more flex:1/overflow:hidden cramping -->
+    <div class="lp-section">
+      <div class="lp-section-title" id="tc-section-title">
+        <span>&#9654; Test Cases</span>
+        <span style="font-size:10px;" id="tc-count-label">0 cases</span>
+      </div>
+      <div style="padding:6px;">
+        <div id="test-cases-list"></div>
+        <button class="add-tc-btn" id="add-tc-btn">+ Add Test Case</button>
+        <button id="run-all-btn" style="width:100%;background:#2D7A2D;color:#FFF;border:1px solid #1A5C1A;padding:4px;font-size:12px;cursor:pointer;font-family:Verdana,sans-serif;" disabled>
+          &#9654; Run All Tests
+        </button>
+      </div>
+    </div>
+
+    <!-- Problem summary (below test cases, grows naturally) -->
+    <div id="problem-summary-display" style="display:none;"></div>
+
+
+  </div><!-- /.left-panel -->
+
+
+  <!-- ════ RIGHT PANEL ════ -->
+  <div class="right-panel">
+
+    <!-- Editor toolbar -->
+    <div class="editor-toolbar">
+      <label class="toolbar-label">Language:</label>
+      <select id="lang-select">
+        <option value="cpp-g++-15">C++ (g++ / C++23)</option>
+        <option value="python-3.14">Python 3</option>
+        <option value="deno">JavaScript (Node)</option>
+      </select>
+      <div class="toolbar-sep"></div>
+      <button id="download-btn">&#8659; Download</button>
+      <div class="toolbar-sep"></div>
+      <button id="ai-review-btn" title="AI Code Review">&#129302; AI Review</button>
+      <div style="flex:1;"></div>
+      <span class="toolbar-label" id="editor-status-label"></span>
+      <button class="run-btn" id="run-btn-toolbar">&#9654; Run All Tests</button>
+    </div>
+
+    <!-- Monaco editor -->
+    <div id="monaco-editor"></div>
+
+    <!-- Output area -->
+    <div class="output-area" id="output-area">
+      <div class="out-label">Output</div>
+      <pre class="info-text" id="output-pre">// Click "Run" or "Run All Tests" to execute.</pre>
+    </div>
+
+  </div><!-- /.right-panel -->
+
+</div><!-- /.compiler-root -->
+
+<!-- ── AI Review backdrop + Panel ───────────────────────── -->
+<div id="ai-review-backdrop" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);backdrop-filter:blur(2px);z-index:199;"></div>
+<div id="ai-review-panel">
+  <div class="ai-panel-header">
+    <span>&#129302; AI Code Review</span>
+    <button id="ai-panel-close" title="Close">&#10005;</button>
+  </div>
+  <div style="padding:0 0 0.25rem 1rem;font-size:11px;color:#888;font-family:Verdana,sans-serif;">Big-O analysis &amp; optimisations</div>
+  <div id="ai-review-content">
+    <p style="color:#888;">Click "AI Review" in the toolbar to analyse the code in the editor.</p>
+  </div>
+</div>
+
+
+<!-- ── Firebase (auth) ───────────────────────────────────── -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="/js/firebase-client.js"></script>
+<script src="/js/auth.js"></script>
+
+<!-- ── Monaco Editor loader ──────────────────────────────── -->
+<script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.44.0/min/vs/loader.js"></script>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ── Backend URL: auto-detect dev vs production ── */
+  // On local dev the static server (port 3000) and the Express backend (port 3001)
+  // are separate processes, so we must point directly at 3001.
+  // On Vercel/production everything runs under the same origin.
+  const BACKEND = (window.location.port === '3000')
+    ? 'http://localhost:3001'
+    : '';
+
+  /* ── Default starter code ──────────────────────────────────── */
+  const STARTERS = {
+    'cpp-g++-15': `#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    // TODO: read input, solve, output
+
+    return 0;
+}
+`,
+    'python-3.14': `import sys
+input = sys.stdin.readline
+
+def solve():
+    # TODO: read input, solve, output
+    pass
+
+solve()
+`,
+    'deno': `// Competitive Programming — JavaScript (Node)
+const lines = require('fs').readFileSync('/dev/stdin','utf-8').split('\\n');
+let idx = 0;
+const rl = () => lines[idx++].trim();
+
+// TODO: solve
+`
+  };
+
+  /* ── State ─────────────────────────────────────────────────── */
+  let editor        = null;
+  let _language     = 'cpp-g++-15';
+  let _session      = null;
+  let _testCases    = [];    // [{id, input, expected, status, output, error}]
+  let _isRunning    = false;
+  let _isGenerating = false;
+  let _problemSummary = '';
+  let _autoRunOnGenerate = true;
+
+  /* ── Bootstrap ─────────────────────────────────────────────── */
+  window.addEventListener('DOMContentLoaded', async function () {
+    _session = await Auth.initPage(true);
+    if (!_session) return;
+
+    _initMonaco();
+    _wireUI();
+  });
+
+  /* ── Monaco init ────────────────────────────────────────────── */
+  function _initMonaco() {
+    require.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.44.0/min/vs' } });
+    require(['vs/editor/editor.main'], function () {
+      editor = monaco.editor.create(document.getElementById('monaco-editor'), {
+        value:         STARTERS[_language],
+        language:      'cpp',
+        theme:         'vs-dark',
+        fontSize:      14,
+        minimap:       { enabled: false },
+        wordWrap:      'off',
+        automaticLayout: true,
+        scrollBeyondLastLine: false,
+        tabSize:       4,
+        insertSpaces:  true,
+        padding:       { top: 8 }
+      });
+
+      // Ctrl+Enter = Run All Tests (same as toolbar Run button, matching compil)
+      editor.addCommand(
+        monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter,
+        function () { _runAllTests(); }
+      );
+
+      document.getElementById('run-all-btn').disabled = false;
+      document.getElementById('run-btn-toolbar').disabled = false;
+    });
+  }
+
+  /* ── Language switch ────────────────────────────────────────── */
+  function _setLanguage(lang) {
+    _language = lang;
+    if (!editor) return;
+    const monacoLang = lang.startsWith('cpp') ? 'cpp'
+                     : lang.startsWith('python') ? 'python'
+                     : 'javascript';
+    monaco.editor.setModelLanguage(editor.getModel(), monacoLang);
+    // Switch to starter if still default
+    const cur = editor.getValue();
+    if (Object.values(STARTERS).some(s => s.trim() === cur.trim())) {
+      editor.setValue(STARTERS[lang] || '');
+    }
+  }
+
+  /* ── Wire all UI events ─────────────────────────────────────── */
+  function _wireUI() {
+    document.getElementById('lang-select').addEventListener('change', function () {
+      _setLanguage(this.value);
+    });
+
+    document.getElementById('run-btn-toolbar').addEventListener('click', _runAllTests);
+    document.getElementById('run-all-btn').addEventListener('click', _runAllTests);
+    document.getElementById('download-btn').addEventListener('click', _downloadCode);
+
+    document.getElementById('add-tc-btn').addEventListener('click', function () {
+      _addTestCase({ input: '', expected: '' });
+    });
+
+    document.getElementById('generate-tests-btn').addEventListener('click', _generateTests);
+
+    document.getElementById('auto-run-checkbox').addEventListener('change', function () {
+      _autoRunOnGenerate = this.checked;
+    });
+
+    document.getElementById('ai-review-btn').addEventListener('click', _openAiReview);
+    document.getElementById('ai-panel-close').addEventListener('click', _closeAiReview);
+    document.getElementById('ai-review-backdrop').addEventListener('click', _closeAiReview);
+
+    // Collapsible problem section
+    document.getElementById('problem-section-title').addEventListener('click', function () {
+      const body  = document.getElementById('problem-section-body');
+      const arrow = document.getElementById('problem-section-arrow');
+      const open  = body.style.display !== 'none';
+      body.style.display  = open ? 'none' : '';
+      arrow.innerHTML     = open ? '&#9650;' : '&#9660;';
+    });
+  }
+
+  /* ── Run all test cases ─────────────────────────────────────── */
+  async function _runAllTests() {
+    if (_isRunning || !editor) return;
+    if (_testCases.length === 0) return;  // no test cases — do nothing (matches compil)
+
+    _isRunning = true;
+    document.getElementById('run-all-btn').textContent  = 'Running...';
+    document.getElementById('run-all-btn').disabled     = true;
+    document.getElementById('run-btn-toolbar').disabled = true;
+
+    const code = editor.getValue();
+
+    // Reset all to RUNNING — set output/error to undefined so Actual Output box is hidden
+    _testCases = _testCases.map(tc => ({ ...tc, status: 'RUNNING', output: undefined, error: undefined }));
+    _renderTestCases();
+
+    let passed = 0;
+    for (let i = 0; i < _testCases.length; i++) {
+      const tc = _testCases[i];
+      try {
+        const res  = await fetch(BACKEND + '/api/run-code', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ compiler: _language, code: code, input: tc.input })
+        });
+        const data = await res.json();
+
+        const actualOutput   = (data.output || '').trim();
+        const expectedOutput = (tc.expected || '').trim();
+        let status;
+
+        if (data.exit_code === 0) {
+          status = (expectedOutput === '' || actualOutput === expectedOutput) ? 'AC' : 'WA';
+          if (status === 'AC') passed++;
+        } else {
+          status = 'ERROR';
+        }
+
+        _testCases[i] = { ...tc, status, output: data.output || '', error: data.error || '' };
+      } catch (e) {
+        _testCases[i] = { ...tc, status: 'ERROR', error: e.message };
+      }
+      _renderTestCases();
+    }
+
+    _isRunning = false;
+    const total = _testCases.length;
+    document.getElementById('run-all-btn').textContent  = '\u25B6 Run All Tests';
+    document.getElementById('run-all-btn').disabled     = false;
+    document.getElementById('run-btn-toolbar').disabled = false;
+    _setStatusLabel(passed + '/' + total + ' passed');
+    _setOutput('<pre class="info-text">' + passed + ' / ' + total + ' test cases passed.</pre>', false);
+  }
+
+  /* ── Generate summary + tests from pasted problem text ──────── */
+  async function _generateTests() {
+    if (_isGenerating) return;
+    const problemText = document.getElementById('problem-text-input').value.trim();
+    if (!problemText) { alert('Paste a problem statement first.'); return; }
+
+    _isGenerating = true;
+    const btn = document.getElementById('generate-tests-btn');
+    const statusEl = document.getElementById('problem-status-msg');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="generating-spinner"></span>Generating...';
+    statusEl.style.display = 'block';
+    statusEl.textContent   = 'Generating summary and test cases with AI...';
+
+    try {
+      const genRes = await fetch(BACKEND + '/api/generate-tests', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ problemText: problemText })
+      });
+      if (!genRes.ok) {
+        const err = await genRes.json().catch(() => ({ error: 'HTTP ' + genRes.status }));
+        throw new Error(err.error || 'HTTP ' + genRes.status);
+      }
+      const genData = await genRes.json();
+
+      // Display summary with proper math rendering
+      if (genData.summary) {
+        _problemSummary = genData.summary;
+        const displayEl = document.getElementById('problem-summary-display');
+        displayEl.style.display = '';
+        _renderMarkdownWithMath(_problemSummary, displayEl);
+      }
+
+      // Load test cases
+      if (genData.testCases && genData.testCases.length > 0) {
+        _testCases = [];
+        genData.testCases.forEach(function (tc) {
+          _addTestCase({ input: String(tc.input || ''), expected: String(tc.expected || '') });
+        });
+        statusEl.textContent = 'Done! ' + genData.testCases.length + ' test cases generated.';
+        if (_autoRunOnGenerate) {
+          setTimeout(_runAllTests, 300);
+        }
+      } else {
+        statusEl.textContent = 'Summary generated. No test cases found.';
+      }
+
+    } catch (e) {
+      statusEl.textContent = 'Error: ' + e.message;
+    } finally {
+      _isGenerating = false;
+      btn.disabled  = false;
+      btn.innerHTML = '&#10024; Generate Summary &amp; Tests';
+    }
+  }
+
+  /* ── Math-aware markdown renderer ────────────────────────────────
+     Pre-processes $...$ and $$...$$ BEFORE marked runs,
+     so dollar signs are never visible as raw text.
+     Falls back to plain marked if KaTeX isn't loaded yet.
+     --------------------------------------------------------------- */
+  function _renderMarkdownWithMath(markdown, element) {
+    if (!window.katex) {
+      element.innerHTML = '<div style="color:red; font-size:10px;">[Debug: KaTeX is undefined in window]</div>' + marked.parse(markdown);
+      return;
+    }
+
+    const store = [];
+    let log = '';
+
+    // 1. Strip $$...$$ display blocks FIRST (before inline $)
+    let md = markdown.replace(/\$\$([\s\S]+?)\$\$/g, function (_, tex) {
+      const i = store.length;
+      try { store.push(katex.renderToString(tex.trim(), { displayMode: true,  throwOnError: false })); }
+      catch (e) { store.push('<span style="color:red;">' + tex + '</span>'); log += 'ERR $$: ' + e.message + '<br>'; }
+      return 'KMATH' + i + 'ENDKM';
+    });
+
+    // 2. Strip inline $...$ (can span lines if the AI word-wrapped it)
+    md = md.replace(/\$([^\$]+?)\$/g, function (_, tex) {
+      const i = store.length;
+      try { store.push(katex.renderToString(tex.trim(), { displayMode: false, throwOnError: false })); }
+      catch (e) { store.push('<span style="color:red;">' + tex + '</span>'); log += 'ERR $: ' + e.message + '<br>'; }
+      return 'KMATH' + i + 'ENDKM';
+    });
+
+    log += `Stored ${store.length} math blocks.<br>`;
+
+    // 3. Run marked on the math-free markdown
+    let html = marked.parse(md);
+
+    // 4. Restore KaTeX HTML (marked leaves KMATH...ENDKM as plain text)
+    html = html.replace(/KMATH(\d+)ENDKM/g, function (_, i) {
+      return store[parseInt(i, 10)] || '';
+    });
+
+    if (store.length === 0 && markdown.includes('$')) {
+      log += `Regex failed to match any $ symbols!<br>`;
+    }
+
+    element.innerHTML = (log ? '<div style="background:#ffdada; border:1px solid red; padding:5px; margin-bottom:10px; font-size:11px;"><b>Math Debug Log:</b><br>' + log + '</div>' : '') + html;
+  }
+
+
+  /* ── AI Review ──────────────────────────────────────────────── */
+  async function _openAiReview() {
+    if (!editor) return;
+    const code = editor.getValue();
+    if (!code.trim()) { alert('Write some code to review.'); return; }
+
+    _aiReviewOpen = true;
+    document.getElementById('ai-review-panel').classList.add('open');
+    document.getElementById('ai-review-backdrop').style.display = 'block';
+
+    const contentEl = document.getElementById('ai-review-content');
+    contentEl.innerHTML = '<span class="ai-cursor"></span>';
+
+    try {
+      const res = await fetch(BACKEND + '/api/ai-review', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+          code:           code,
+          language:       { 'cpp-g++-15': 'C++', 'python-3.14': 'Python', 'deno': 'JS' }[_language] || 'C++',
+          problemSummary: _problemSummary
+        })
+      });
+
+      if (!res.ok || !res.body) {
+        contentEl.innerHTML = '<p style="color:#F48771;">Failed to get AI review. Check that GEMINI_API_KEY is set on the server.</p>';
+        return;
+      }
+
+      const reader  = res.body.getReader();
+      const decoder = new TextDecoder();
+      let accumulated = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        accumulated += decoder.decode(value, { stream: true });
+        _renderMarkdownWithMath(accumulated, contentEl);
+        // add the cursor
+        contentEl.innerHTML += '<span class="ai-cursor"></span>';
+        contentEl.scrollTop = contentEl.scrollHeight;
+      }
+
+      _renderMarkdownWithMath(accumulated, contentEl);
+    } catch (e) {
+      contentEl.innerHTML = '<p style="color:#F48771;">Network error: ' + _esc(e.message) + '</p>';
+    }
+  }
+
+  function _closeAiReview() {
+    document.getElementById('ai-review-panel').classList.remove('open');
+    document.getElementById('ai-review-backdrop').style.display = 'none';
+  }
+
+  /* ── Test case helpers ──────────────────────────────────────── */
+  function _addTestCase(opts) {
+    const tc = {
+      id:       crypto.randomUUID(),
+      input:    opts.input    || '',
+      expected: opts.expected || '',
+      status:   'IDLE',
+      output:   undefined,
+      error:    undefined
+    };
+    _testCases.push(tc);
+    _renderTestCases();
+  }
+
+  function _updateTestCase(id, field, value) {
+    const tc = _testCases.find(t => t.id === id);
+    if (tc) tc[field] = value;
+  }
+
+  function _removeTestCase(id) {
+    _testCases = _testCases.filter(t => t.id !== id);
+    _renderTestCases();
+  }
+
+  function _renderTestCases() {
+    const list = document.getElementById('test-cases-list');
+    const countLabel = document.getElementById('tc-count-label');
+    countLabel.textContent = _testCases.length + ' case' + (_testCases.length === 1 ? '' : 's');
+
+    list.innerHTML = '';
+    _testCases.forEach(function (tc, i) {
+      const statusMap = {
+        'AC':      ['AC',       'tc-status-ac'],
+        'WA':      ['WA',       'tc-status-wa'],
+        'ERROR':   ['ERR',      'tc-status-error'],
+        'RUNNING': ['Running…', 'tc-status-running'],
+        'IDLE':    ['',         'tc-status-pending'],
+        'PENDING': ['',         'tc-status-pending']
+      };
+      const [statusText, statusClass] = statusMap[tc.status] || ['', 'tc-status-pending'];
+
+      const card = document.createElement('div');
+      card.className = 'test-case-card';
+      card.dataset.id = tc.id;
+
+      card.innerHTML =
+        '<div class="tc-header">' +
+          '<div style="display:flex;align-items:center;gap:6px;">' +
+            '<span>Test ' + (i+1) + '</span>' +
+            (statusText ? '<span class="tc-status ' + statusClass + '">' + _esc(statusText) + '</span>' : '') +
+          '</div>' +
+          '<button data-del="' + tc.id + '" style="border:none;background:none;color:#CC0000;cursor:pointer;font-size:13px;padding:0 2px;" title="Remove">&#10005;</button>' +
+        '</div>' +
+        '<div class="tc-body">' +
+          '<label>Input</label>' +
+          '<textarea data-field="input" data-id="' + tc.id + '" rows="2">' + _esc(tc.input) + '</textarea>' +
+          '<label>Expected Output</label>' +
+          '<textarea data-field="expected" data-id="' + tc.id + '" rows="2">' + _esc(tc.expected) + '</textarea>' +
+          // Actual Output (shown after run, separate from Error — mirrors compil)
+          (tc.output !== undefined ?
+            '<label style="color:' + (tc.status === 'AC' ? '#007700' : '#CC0000') + '">Actual Output</label>' +
+            '<div class="tc-output-box ' + (tc.status === 'AC' ? '' : 'tc-output-error') + '">' +
+              _esc(tc.output || '(empty)') +
+            '</div>' : '') +
+          // Error box (separate, only shown when error field has content)
+          (tc.error ?
+            '<label style="color:#CC0000;">Error</label>' +
+            '<div class="tc-output-box tc-output-error">' + _esc(tc.error) + '</div>' : '') +
+        '</div>';
+
+      list.appendChild(card);
+    });
+
+    // Wire textarea changes
+    list.querySelectorAll('textarea[data-field]').forEach(function (ta) {
+      ta.addEventListener('change', function () {
+        _updateTestCase(this.dataset.id, this.dataset.field, this.value);
+      });
+    });
+
+    // Wire delete buttons
+    list.querySelectorAll('button[data-del]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        _removeTestCase(this.dataset.del);
+      });
+    });
+  }
+
+  /* ── Output helpers ─────────────────────────────────────────── */
+  function _setOutput(html, raw) {
+    const area = document.getElementById('output-area');
+    const pre  = document.getElementById('output-pre');
+    if (raw) {
+      pre.textContent = html;
+    } else {
+      area.innerHTML  = html;
+    }
+  }
+
+  function _setStatusLabel(text) {
+    document.getElementById('editor-status-label').textContent = text;
+  }
+
+  /* ── Download ────────────────────────────────────────────────── */
+  function _downloadCode() {
+    if (!editor) return;
+    const code = editor.getValue();
+    const ext  = _language.startsWith('cpp') ? 'cpp'
+               : _language.startsWith('python') ? 'py'
+               : 'js';
+    const blob = new Blob([code], { type: 'text/plain' });
+    const a    = document.createElement('a');
+    a.href     = URL.createObjectURL(blob);
+    a.download = 'solution.' + ext;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  /* ── Escape HTML ─────────────────────────────────────────────── */
+  function _esc(str) {
+    return String(str || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+}());
+</script>
+</body>
+</html>

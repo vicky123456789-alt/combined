@@ -1,0 +1,457 @@
+/* =============================================================
+   style.css  —  CF Weakness Tracker Global Styles
+   Strict Codeforces Utilitarian Aesthetic.
+   Rules: zero border-radius, zero box-shadow, system fonts,
+   #E1E1E1 background, white panels, 1px solid gray borders.
+   ============================================================= */
+
+/* ── Reset ─────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+body {
+  background-color: #E1E1E1;
+  font-family: Verdana, Arial, Tahoma, sans-serif;
+  font-size: 13px;
+  color: #000000;
+  margin: 0;
+  padding: 0;
+  line-height: 1.45;
+}
+
+h1, h2, h3, h4 {
+  font-family: Verdana, Arial, Tahoma, sans-serif;
+  margin: 0 0 8px 0;
+}
+
+/* ── Links ─────────────────────────────────────────────────── */
+a            { color: #0000EE; text-decoration: underline; }
+a:visited    { color: #551A8B; }
+a:hover      { color: #0000CC; }
+a:active     { color: #FF0000; }
+
+/* ── Main Container ────────────────────────────────────────── */
+.container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 8px 10px;
+}
+
+/* ── Navigation Bar ────────────────────────────────────────── */
+.navbar {
+  background-color: #1A3F6F;
+  border-bottom: 2px solid #0D2B52;
+  position: relative;
+}
+
+.nav-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  align-items: stretch;
+  flex-wrap: wrap;
+}
+
+.nav-logo {
+  padding: 8px 14px 8px 10px;
+  font-weight: bold;
+  font-size: 14px;
+  white-space: nowrap;
+  border-right: 1px solid #0D2B52;
+}
+
+.nav-logo a {
+  color: #FFFFFF;
+  text-decoration: none;
+}
+
+.nav-links {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  align-items: stretch;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+.nav-links li { display: flex; align-items: stretch; }
+
+.nav-links li a {
+  display: flex;
+  align-items: center;
+  padding: 0 11px;
+  color: #C8DBEF;
+  text-decoration: none;
+  font-size: 12px;
+  white-space: nowrap;
+  border-right: 1px solid #0D2B52;
+}
+
+.nav-links li a:hover,
+.nav-links li a.active {
+  background-color: #0D2B52;
+  color: #FFFFFF;
+}
+
+.nav-links li a:visited { color: #C8DBEF; }
+
+.hamburger {
+  display: none;
+  background: none;
+  border: none;
+  color: #FFFFFF;
+  font-size: 22px;
+  padding: 0 14px;
+  cursor: pointer;
+  margin-left: auto;
+  align-self: center;
+}
+
+/* ── Panels ─────────────────────────────────────────────────── */
+.panel {
+  background: #FFFFFF;
+  border: 1px solid #B9B9B9;
+  margin-bottom: 8px;
+}
+
+.panel-title {
+  background-color: #3D7EBB;
+  color: #FFFFFF;
+  padding: 5px 8px;
+  font-weight: bold;
+  font-size: 12px;
+  border-bottom: 1px solid #2C6090;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.panel-body {
+  padding: 8px;
+}
+
+/* ── Tables ─────────────────────────────────────────────────── */
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 12px;
+}
+
+th, td {
+  border: 1px solid #BBBBBB;
+  padding: 4px 8px;
+  text-align: left;
+  vertical-align: middle;
+}
+
+th {
+  background-color: #EEEEFF;
+  font-weight: bold;
+  font-size: 11px;
+  text-transform: uppercase;
+  color: #333366;
+}
+
+tbody tr:nth-child(even) td { background-color: #F6F6F6; }
+tbody tr:hover td           { background-color: #FFFDD0; cursor: default; }
+
+/* ── Buttons ────────────────────────────────────────────────── */
+button,
+input[type="submit"],
+.btn {
+  font-family: Verdana, Arial, Tahoma, sans-serif;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 16px;
+  background-color: #E8E8E8;
+  border: 1px solid #9B9B9B;
+  color: #000000;
+  text-decoration: none;
+  display: inline-block;
+  line-height: 1.4;
+}
+
+button:hover,
+input[type="submit"]:hover,
+.btn:hover {
+  background-color: #D4D4D4;
+}
+
+button:disabled,
+input[type="submit"]:disabled {
+  background-color: #F0F0F0;
+  color: #999999;
+  cursor: not-allowed;
+  border-color: #BBBBBB;
+}
+
+.btn-primary {
+  background-color: #4472AA;
+  color: #FFFFFF;
+  border-color: #2C5282;
+}
+
+.btn-primary:hover { background-color: #2C5282; color: #FFFFFF; }
+
+.btn-danger {
+  background-color: #CC3333;
+  color: #FFFFFF;
+  border-color: #AA2222;
+}
+
+.btn-google {
+  background-color: #FFFFFF;
+  border: 1px solid #AAAAAA;
+  padding: 5px 16px;
+  font-size: 12px;
+}
+
+/* ── Form Elements ──────────────────────────────────────────── */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="url"],
+input[type="number"],
+textarea,
+select {
+  font-family: Verdana, Arial, Tahoma, sans-serif;
+  font-size: 12px;
+  border: 1px solid #9B9B9B;
+  padding: 4px 6px;
+  background: #FFFFFF;
+  color: #000000;
+}
+
+input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="password"]:focus,
+input[type="url"]:focus {
+  border-color: #4472AA;
+  outline: 1px solid #4472AA;
+}
+
+label {
+  font-size: 12px;
+  font-weight: bold;
+  display: inline-block;
+  margin-bottom: 3px;
+}
+
+.form-row { margin-bottom: 10px; }
+.form-row input,
+.form-row select { width: 100%; }
+
+/* ── Messages ───────────────────────────────────────────────── */
+.msg-info {
+  background: #EEF4FF;
+  border: 1px solid #88AACC;
+  padding: 6px 10px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: #003366;
+}
+
+.msg-error {
+  background: #FFF0F0;
+  border: 1px solid #CC8888;
+  padding: 6px 10px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: #880000;
+}
+
+.msg-success {
+  background: #F0FFF0;
+  border: 1px solid #88BB88;
+  padding: 6px 10px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: #004400;
+}
+
+.msg-warn {
+  background: #FFFBEE;
+  border: 1px solid #CCAA44;
+  padding: 6px 10px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: #664400;
+}
+
+/* ── Skeleton Loading ───────────────────────────────────────── */
+.skeleton td {
+  color: #CCCCCC;
+  background-color: #F0F0F0;
+  border-color: #DDDDDD;
+}
+
+.loading-text {
+  color: #888888;
+  font-style: italic;
+  font-size: 12px;
+  padding: 6px 0;
+}
+
+/* ── Weakness Score Colors ──────────────────────────────────── */
+.score-high { color: #CC0000; font-weight: bold; }
+.score-med  { color: #CC7700; font-weight: bold; }
+.score-low  { color: #006600; font-weight: bold; }
+
+/* ── Streak Widget ──────────────────────────────────────────── */
+.streak-widget {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 4px 0;
+}
+
+.streak-box {
+  border: 1px solid #B9B9B9;
+  padding: 6px 16px;
+  background: #FAFAFA;
+  text-align: center;
+  min-width: 100px;
+}
+
+.streak-box .streak-num {
+  font-size: 22px;
+  font-weight: bold;
+  display: block;
+  color: #1A3F6F;
+}
+
+.streak-box .streak-label {
+  font-size: 10px;
+  color: #555555;
+  text-transform: uppercase;
+}
+
+/* ── Badges ─────────────────────────────────────────────────── */
+.badge {
+  display: inline-block;
+  background: #EEEEFF;
+  border: 1px solid #9999CC;
+  padding: 2px 8px;
+  margin: 2px 3px 2px 0;
+  font-size: 11px;
+  color: #333366;
+}
+
+.badge-gold   { background: #FFF8DC; border-color: #CCAA00; color: #664400; }
+.badge-silver { background: #F8F8F8; border-color: #888888; color: #333333; }
+
+/* ── Landing Page ───────────────────────────────────────────── */
+.landing-wrap {
+  max-width: 900px;
+  margin: 16px auto;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.landing-info {
+  flex: 1;
+  min-width: 260px;
+}
+
+.landing-auth {
+  width: 340px;
+  min-width: 280px;
+}
+
+.landing-info h1 {
+  font-size: 17px;
+  margin-bottom: 10px;
+  color: #1A3F6F;
+  border-bottom: 1px solid #CCCCCC;
+  padding-bottom: 6px;
+}
+
+.feature-list {
+  padding-left: 18px;
+  margin: 8px 0;
+  font-size: 12px;
+  line-height: 1.8;
+}
+
+/* ── Sync bar ───────────────────────────────────────────────── */
+.sync-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 12px;
+}
+
+.sync-bar .handle-info {
+  font-weight: bold;
+  color: #1A3F6F;
+}
+
+/* ── Horizontal rule ────────────────────────────────────────── */
+hr {
+  border: none;
+  border-top: 1px solid #CCCCCC;
+  margin: 10px 0;
+}
+
+/* ── Section separator for recs ────────────────────────────── */
+.rec-tag-header {
+  background: #EEF2FF;
+  border: 1px solid #B9B9B9;
+  border-bottom: none;
+  padding: 5px 8px;
+  font-weight: bold;
+  font-size: 12px;
+  color: #1A3F6F;
+  margin-top: 6px;
+}
+
+/* ── Charts page ────────────────────────────────────────────── */
+.chart-img {
+  max-width: 100%;
+  border: 1px solid #B9B9B9;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.chart-placeholder {
+  border: 1px solid #BBBBBB;
+  background: #F5F5F5;
+  height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #888888;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+/* ── Responsive ─────────────────────────────────────────────── */
+@media (max-width: 680px) {
+  .hamburger { display: block; }
+
+  .nav-links {
+    display: none;
+    flex-direction: column;
+    width: 100%;
+    border-top: 1px solid #0D2B52;
+  }
+
+  .nav-links.nav-open { display: flex; }
+
+  .nav-links li a {
+    padding: 10px 14px;
+    border-right: none;
+    border-bottom: 1px solid #0D2B52;
+  }
+
+  .landing-wrap { flex-direction: column; }
+  .landing-auth { width: 100%; }
+
+  th, td { padding: 3px 5px; font-size: 11px; }
+}

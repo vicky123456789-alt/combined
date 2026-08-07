@@ -1,0 +1,171 @@
+@import "tailwindcss";
+
+/* ─── Design Tokens ─────────────────────────────────────── */
+:root {
+  /* Brand palette */
+  --brand-50:  #f0f4ff;
+  --brand-100: #e0eaff;
+  --brand-200: #c7d7fd;
+  --brand-300: #a5bcfd;
+  --brand-400: #8098fa;
+  --brand-500: #6274f5;
+  --brand-600: #4f55eb;
+  --brand-700: #3f40d6;
+  --brand-800: #3335ac;
+  --brand-900: #2e3188;
+
+  /* Neutral surface */
+  --surface-0:   #09090b;
+  --surface-50:  #111113;
+  --surface-100: #18181b;
+  --surface-200: #27272a;
+  --surface-300: #3f3f46;
+  --surface-400: #52525b;
+  --surface-500: #71717a;
+  --surface-600: #a1a1aa;
+  --surface-700: #d4d4d8;
+  --surface-800: #e4e4e7;
+  --surface-900: #f4f4f5;
+
+  /* Semantic */
+  --bg-base:      var(--surface-0);
+  --bg-elevated:  var(--surface-50);
+  --bg-panel:     var(--surface-100);
+  --border:       var(--surface-200);
+  --text-primary: var(--surface-900);
+  --text-muted:   var(--surface-600);
+
+  /* Status */
+  --color-ac:  #22c55e;
+  --color-wa:  #ef4444;
+  --color-tle: #f59e0b;
+  --color-run: #6274f5;
+
+  /* Editor */
+  --editor-bg: #0d0d0f;
+}
+
+@theme inline {
+  --color-background: var(--bg-base);
+  --color-foreground: var(--text-primary);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+/* ─── Base Styles ───────────────────────────────────────── */
+* {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: dark;
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  font-family: Arial, Helvetica, sans-serif;
+  min-height: 100dvh;
+}
+
+/* ─── Scrollbar ─────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--surface-100); }
+::-webkit-scrollbar-thumb { background: var(--surface-300); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: var(--surface-400); }
+
+/* ─── Glass card ────────────────────────────────────────── */
+.glass {
+  background: rgba(24, 24, 27, 0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* ─── Gradient text ─────────────────────────────────────── */
+.gradient-text {
+  background: linear-gradient(135deg, var(--brand-400), #a78bfa, #ec4899);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ─── Button base ───────────────────────────────────────── */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: var(--brand-600);
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
+  box-shadow: 0 0 0 0 transparent;
+}
+.btn-primary:hover {
+  background: var(--brand-500);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 24px rgba(98, 116, 245, 0.35);
+}
+.btn-primary:active { transform: translateY(0); }
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: var(--surface-200);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+}
+.btn-secondary:hover {
+  background: var(--surface-300);
+  transform: translateY(-1px);
+}
+
+/* ─── Glow ring for cards on hover ─────────────────────── */
+.glow-card {
+  border: 1px solid var(--surface-200);
+  border-radius: 0.75rem;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+}
+.glow-card:hover {
+  border-color: rgba(98, 116, 245, 0.4);
+  box-shadow: 0 0 0 1px rgba(98, 116, 245, 0.15), 0 8px 32px rgba(98, 116, 245, 0.12);
+  transform: translateY(-2px);
+}
+
+/* ─── Badge ─────────────────────────────────────────────── */
+.badge-ac  { background: rgba(34, 197, 94, 0.15);  color: var(--color-ac);  border: 1px solid rgba(34, 197, 94, 0.3); }
+.badge-wa  { background: rgba(239, 68, 68, 0.15);  color: var(--color-wa);  border: 1px solid rgba(239, 68, 68, 0.3); }
+.badge-tle { background: rgba(245, 158, 11, 0.15); color: var(--color-tle); border: 1px solid rgba(245, 158, 11, 0.3); }
+.badge-run { background: rgba(98, 116, 245, 0.15); color: var(--color-run); border: 1px solid rgba(98, 116, 245, 0.3); }
+
+/* ─── Status indicator dot ──────────────────────────────── */
+@keyframes ping {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.4); opacity: 0.5; }
+}
+.status-dot { border-radius: 999px; width: 8px; height: 8px; animation: ping 2s ease-in-out infinite; }
+
+/* ─── Page entrance animation ───────────────────────────── */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-up { animation: fade-up 0.4s ease forwards; }
+
+/* ─── Fix KaTeX Double Rendering ────────────────────────── */
+.katex-mathml {
+  display: none !important;
+}
