@@ -545,20 +545,43 @@ const rl = () => lines[idx++].trim();
   let editor        = null;
   let _language     = 'cpp-g++-15';
   let _session      = null;
+  let _profile      = null;   // Firestore profile (includes subscription fields)
   let _testCases    = [];    // [{id, input, expected, status, output, error}]
   let _isRunning    = false;
   let _isGenerating = false;
   let _problemSummary = '';
   let _autoRunOnGenerate = true;
+  let _aiReviewOpen  = false;
 
   /* ── Bootstrap ─────────────────────────────────────────────── */
   window.addEventListener('DOMContentLoaded', async function () {
     _session = await Auth.initPage(true);
     if (!_session) return;
 
+    // Load profile to check subscription status
+    try {
+      _profile = await FirebaseClient.getProfile(_session.user.id);
+    } catch (_) {
+      _profile = null;
+    }
+
+    // Show lock icon on AI Review button if not subscribed
+    if (!_isSubscribed()) {
+      const btn = document.getElementById('ai-review-btn');
+      if (btn) btn.innerHTML = '&#129302; AI Review &#128274;';
+    }
+
     _initMonaco();
     _wireUI();
   });
+
+  /* ── Subscription helper ────────────────────────────────────── */
+  function _isSubscribed() {
+    if (!_profile) return false;
+    const status = _profile.subscription_status;
+    const expiry = _profile.subscription_expiry;
+    return status === 'active' && expiry && new Date(expiry) > new Date();
+  }
 
   /* ── Monaco init ────────────────────────────────────────────── */
   function _initMonaco() {
@@ -800,6 +823,15 @@ const rl = () => lines[idx++].trim();
   /* ── AI Review ──────────────────────────────────────────────── */
   async function _openAiReview() {
     if (!editor) return;
+
+    // ── Subscription gate ───────────────────────────────────────
+    if (!_isSubscribed()) {
+      if (confirm('AI Code Review is a Pro feature.\n\nUpgrade to Pro to unlock it. Go to the Subscription page?')) {
+        window.location.href = '/subscription.html';
+      }
+      return;
+    }
+
     const code = editor.getValue();
     if (!code.trim()) { alert('Write some code to review.'); return; }
 
@@ -813,7 +845,10 @@ const rl = () => lines[idx++].trim();
     try {
       const res = await fetch(BACKEND + '/api/ai-review', {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type':  'application/json',
+          'Authorization': 'Bearer ' + (_session && _session.access_token || '')
+        },
         body:    JSON.stringify({
           code:           code,
           language:       { 'cpp-g++-15': 'C++', 'python-3.14': 'Python', 'deno': 'JS' }[_language] || 'C++',
@@ -822,7 +857,16 @@ const rl = () => lines[idx++].trim();
       });
 
       if (!res.ok || !res.body) {
-        contentEl.innerHTML = '<p style="color:#F48771;">Failed to get AI review. Check that GEMINI_API_KEY is set on the server.</p>';
+        let errMsg = 'Failed to get AI review.';
+        try {
+          const errData = await res.clone().json();
+          if (errData.requires_upgrade) {
+            contentEl.innerHTML = '<p style="color:#F48771;">&#128274; This feature requires a <a href="/subscription.html" style="color:#9CDCFE;">Pro subscription</a>.</p>';
+            return;
+          }
+          if (errData.error) errMsg = errData.error;
+        } catch (_) {}
+        contentEl.innerHTML = '<p style="color:#F48771;">' + _esc(errMsg) + '</p>';
         return;
       }
 
